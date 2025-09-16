@@ -42,9 +42,9 @@ jobs:
 
     - name: Apply Kubernetes manifests
       run: |
-        kubectl apply -f k8s/deployment.yaml
-        kubectl apply -f k8s/service.yaml
-        kubectl apply -f k8s/ingress.yaml
+        kubectl apply -f k8s/deployment.yml
+        kubectl apply -f k8s/service.yml
+        kubectl apply -f k8s/ingress.yml
     
     - name: Test Wisecow app via Ingress
       run: |
@@ -61,7 +61,7 @@ jobs:
         curl -k --resolve wisecow.local:443:$INGRESS_IP https://wisecow.local
     
 
-    - name: Test Wisecow app
-      run: |
-        sleep 10
-        curl -k https://wisecow.local
+    # - name: Test Wisecow app
+    #   run: |
+    #     sleep 10
+    #     curl -k https://wisecow.local
