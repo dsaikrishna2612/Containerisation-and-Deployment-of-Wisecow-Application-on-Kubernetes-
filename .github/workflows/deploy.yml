@@ -32,6 +32,11 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
         sleep 60
 
+    - name: Patch ingress-nginx service to NodePort
+      run: |
+       kubectl patch svc ingress-nginx-controller -n ingress-nginx \
+       -p '{"spec": {"type": "NodePort"}}'
+
     - name: Inspect ingress-nginx pods
       run: kubectl get pods -n ingress-nginx -o wide
 
