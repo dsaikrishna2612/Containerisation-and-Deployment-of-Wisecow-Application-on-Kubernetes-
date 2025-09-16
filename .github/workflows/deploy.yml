@@ -1,0 +1,60 @@
+name: Deploy Wisecow to Kind
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Kind
+      uses: helm/kind-action@v1.5.0
+
+    - name: Build Docker image
+      run: docker build -t wisecow:latest .
+
+    - name: Load image into Kind
+      run: kind load docker-image wisecow:latest
+
+    - name: Install NGINX Ingress
+      run: |
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
+        sleep 30
+
+    - name: Generate TLS certs
+      run: |
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+          -keyout tls.key -out tls.crt \
+          -subj "/CN=wisecow.local"
+        kubectl create secret tls wisecow-tls \
+          --cert=tls.crt --key=tls.key
+
+    - name: Apply Kubernetes manifests
+      run: |
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+        kubectl apply -f k8s/ingress.yaml
+    
+    - name: Test Wisecow app via Ingress
+      run: |
+       # Wait for ingress to be ready
+         sleep 20
+
+        # Get ingress controller pod IP
+       INGRESS_IP=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx \
+       -o jsonpath="{.items[0].status.podIP}")
+
+       echo "Ingress IP: $INGRESS_IP"
+
+       # Test the app using curl with --resolve to fake DNS
+        curl -k --resolve wisecow.local:443:$INGRESS_IP https://wisecow.local
+    
+
+    - name: Test Wisecow app
+      run: |
+        sleep 10
+        curl -k https://wisecow.local

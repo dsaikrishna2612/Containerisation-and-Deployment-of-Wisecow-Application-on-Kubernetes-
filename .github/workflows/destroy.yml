@@ -1,0 +1,11 @@
+name: Destroy Kind Cluster
+
+on:
+  workflow_dispatch:
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Delete Kind cluster
+      run: kind delete cluster
