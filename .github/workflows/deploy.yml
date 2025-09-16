@@ -32,13 +32,17 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
         sleep 60
 
+    - name: Inspect ingress-nginx pods
+      run: kubectl get pods -n ingress-nginx -o wide
+
+    - name: Dump ingress-nginx logs
+      run: kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx
+
     - name: Wait for ingress webhook to be ready
       run: |
        echo "Waiting for ingress-nginx webhook to be ready..."
-       kubectl wait --namespace ingress-nginx \
-         --for=condition=Ready pod \
-         --selector=app.kubernetes.io/component=controller \
-         --timeout=120s
+       echo "Waiting for ingress-nginx controller to finish rolling out..."
+       kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
 
 
     - name: Generate TLS certs
