@@ -11,6 +11,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: List files
+      run: ls -R
+
+
     - name: Set up Kind
       uses: helm/kind-action@v1.5.0
     
