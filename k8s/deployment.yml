@@ -12,6 +12,8 @@ spec:
       labels:
         app: wisecow
     spec:
+      imagePullSecrets:
+        - name: dockerhub-secret
       containers:
         - name: wisecow
           image: dsk2612/wisecow:latest
