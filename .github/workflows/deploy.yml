@@ -102,6 +102,9 @@ jobs:
         POD_NAME=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].metadata.name}")
         kubectl describe pod $POD_NAME
 
+    - name: Check for image pull errors
+      run: kubectl get events --sort-by='.lastTimestamp'
+
     # 🧪 Test Wisecow app via Ingress
     - name: Test Wisecow app via Ingress
       run: |
