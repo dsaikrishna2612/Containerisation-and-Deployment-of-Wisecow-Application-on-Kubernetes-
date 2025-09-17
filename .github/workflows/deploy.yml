@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 jobs:
-  deploy:
+  deploy-to-kind:
     runs-on: ubuntu-latest
     steps:
     # 📁 Checkout source code
@@ -32,9 +32,10 @@ jobs:
     # 🐳 Build and push Docker image to Docker Hub
     - name: Build and Push Docker image to Docker Hub
       run: |
-        docker build -t dsk2612/wisecow:latest .
+        IMAGE_NAME=dsk2612/wisecow:latest
+        docker build -t $IMAGE_NAME .
         echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-        docker push dsk2612/wisecow:latest
+        docker push $IMAGE_NAME
 
     # 🌐 Install NGINX Ingress Controller
     - name: Install NGINX Ingress
@@ -61,9 +62,10 @@ jobs:
         kubectl create secret tls wisecow-tls \
           --cert=tls.crt --key=tls.key
 
-    # 🚀 Apply Kubernetes manifests
+    # 🚀 Apply Kubernetes manifests (replace IMAGE_PLACEHOLDER)
     - name: Apply Kubernetes manifests
       run: |
+        sed -i "s|IMAGE_PLACEHOLDER|dsk2612/wisecow:latest|g" k8s/deployment.yml
         kubectl apply -f k8s/deployment.yml
         kubectl apply -f k8s/service.yml
         kubectl apply -f k8s/ingress.yml
@@ -79,22 +81,6 @@ jobs:
         kubectl get svc -n default
         echo "🌐 Ingress:"
         kubectl describe ingress wisecow-ingress
-
-    # ⏳ Wait for Wisecow pod to be ready
-    # - name: Wait for Wisecow pod to be ready
-    #   run: |
-    #     echo "⏳ Waiting for Wisecow pod to be ready..."
-    #     for i in {1..5}; do
-    #       READY=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].status.containerStatuses[0].ready}")
-    #       if [ "$READY" == "true" ]; then
-    #         echo "✅ Wisecow pod is ready"
-    #         exit 0
-    #       fi
-    #       echo "⏳ Pod not ready yet, retrying in 30s..."
-    #       sleep 30
-    #     done
-    #     echo "❌ Pod failed to become ready"
-    #     exit 1
 
     # 🧾 Describe pod for debugging
     - name: Describe Wisecow pod

@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: wisecow
+  labels:
+    app: wisecow
 spec:
   replicas: 1
   selector:
@@ -12,27 +14,21 @@ spec:
       labels:
         app: wisecow
     spec:
-      imagePullSecrets:
-        - name: dockerhub-secret
       containers:
         - name: wisecow
-          image: dsk2612/wisecow:latest
-          imagePullPolicy: Always
+          image: IMAGE_PLACEHOLDER   # 🔄 replaced in GitHub Actions
           ports:
             - containerPort: 4499
+          resources:
+            limits:
+              cpu: 250m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
           readinessProbe:
             httpGet:
               path: /
               port: 4499
             initialDelaySeconds: 5
             periodSeconds: 10
-            timeoutSeconds: 2
-            failureThreshold: 3
-            successThreshold: 1
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 250m
-              memory: 256Mi
