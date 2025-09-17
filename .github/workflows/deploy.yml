@@ -26,11 +26,11 @@ jobs:
     - name: Remove taint from Kind node
       run: kubectl taint nodes kind-control-plane node-role.kubernetes.io/control-plane- || true
 
-    - name: Build Docker image
-      run: docker build -t wisecow:latest .
-
-    - name: Load image into Kind
-      run: kind load docker-image wisecow:latest
+    - name: Build and Push Docker image to Docker Hub
+      run: |
+        docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/wisecow:latest .
+        echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/wisecow:latest
 
     - name: Install NGINX Ingress
       run: |
@@ -72,22 +72,7 @@ jobs:
         echo "🌐 Ingress:"
         kubectl describe ingress wisecow-ingress
 
-    # - name: Wait for Wisecow pod to be ready (with fallback)
-    #   run: |
-    #     echo "⏳ Waiting for Wisecow pod to be ready..."
-    #     for i in {1..5}; do
-    #       READY=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].status.containerStatuses[0].ready}")
-    #       if [ "$READY" == "true" ]; then
-    #         echo "✅ Wisecow pod is ready"
-    #         exit 0
-    #       fi
-    #       echo "⏳ Pod not ready yet, retrying in 180s..."
-    #       sleep 180
-    #     done
-    #     echo "❌ Pod failed to become ready"
-    #     exit 1
-
-    - name: Describe Wisecow pod 
+    - name: Describe Wisecow pod
       run: |
         POD_NAME=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].metadata.name}")
         kubectl describe pod $POD_NAME
