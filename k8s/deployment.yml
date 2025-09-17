@@ -15,6 +15,7 @@ spec:
       containers:
         - name: wisecow
           image: dsk2612/wisecow:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 4499
           readinessProbe:
