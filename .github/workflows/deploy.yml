@@ -14,12 +14,17 @@ jobs:
     - name: List files
       run: ls -R
 
-
     - name: Set up Kind
       uses: helm/kind-action@v1.5.0
-    
-    - name: create kind cluster
+
+    - name: Create Kind cluster with custom config
       run: kind create cluster --name kind --config kind-config.yml
+
+    - name: Label Kind node for ingress
+      run: kubectl label node kind-control-plane ingress-ready=true
+
+    - name: Remove taint from Kind node
+      run: kubectl taint nodes kind-control-plane node-role.kubernetes.io/control-plane- || true
 
     - name: Build Docker image
       run: docker build -t wisecow:latest .
@@ -34,8 +39,8 @@ jobs:
 
     - name: Patch ingress-nginx service to NodePort
       run: |
-       kubectl patch svc ingress-nginx-controller -n ingress-nginx \
-       -p '{"spec": {"type": "NodePort"}}'
+        kubectl patch svc ingress-nginx-controller -n ingress-nginx \
+          -p '{"spec": {"type": "NodePort"}}'
 
     - name: Inspect ingress-nginx pods
       run: kubectl get pods -n ingress-nginx -o wide
@@ -48,13 +53,10 @@ jobs:
         POD_NAME=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath="{.items[0].metadata.name}")
         kubectl describe pod $POD_NAME -n ingress-nginx
 
-
-    - name: Wait for ingress webhook to be ready
+    - name: Wait for ingress controller rollout
       run: |
-       echo "Waiting for ingress-nginx webhook to be ready..."
-       echo "Waiting for ingress-nginx controller to finish rolling out..."
-       kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
-
+        echo "Waiting for ingress-nginx controller to finish rolling out..."
+        kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
 
     - name: Generate TLS certs
       run: |
@@ -69,23 +71,16 @@ jobs:
         kubectl apply -f k8s/deployment.yml
         kubectl apply -f k8s/service.yml
         kubectl apply -f k8s/ingress.yml
-    
+
     - name: Test Wisecow app via Ingress
       run: |
-       # Wait for ingress to be ready
-         sleep 20
+        sleep 20
+        INGRESS_IP=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx \
+          -o jsonpath="{.items[0].status.podIP}")
+        echo "Ingress IP: $INGRESS_IP"
+        RESPONSE=$(curl -k --resolve wisecow.local:443:$INGRESS_IP https://wisecow.local)
+        echo "$RESPONSE"
+        echo "$RESPONSE" | grep "cow" || (echo "Unexpected response from Wisecow app" && exit 1)
 
-        # Get ingress controller pod IP
-       INGRESS_IP=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx \
-       -o jsonpath="{.items[0].status.podIP}")
-
-       echo "Ingress IP: $INGRESS_IP"
-
-       # Test the app using curl with --resolve to fake DNS
-        curl -k --resolve wisecow.local:443:$INGRESS_IP https://wisecow.local
-    
-
-    # - name: Test Wisecow app
-    #   run: |
-    #     sleep 10
-    #     curl -k https://wisecow.local
+    - name: Clean up TLS files
+      run: rm tls.crt tls.key
