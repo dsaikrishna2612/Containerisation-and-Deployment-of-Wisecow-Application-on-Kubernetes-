@@ -72,6 +72,12 @@ jobs:
         echo "🌐 Ingress:"
         kubectl describe ingress wisecow-ingress
 
+    - name: Wait for Wisecow pod to be ready
+      run: |
+         echo "⏳ Waiting for Wisecow pod to be ready..."
+         kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
+
+
     - name: Test Wisecow app via Ingress
       run: |
         sleep 20
