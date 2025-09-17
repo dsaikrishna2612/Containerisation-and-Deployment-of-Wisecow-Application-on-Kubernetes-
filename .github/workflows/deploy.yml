@@ -42,17 +42,6 @@ jobs:
         kubectl patch svc ingress-nginx-controller -n ingress-nginx \
           -p '{"spec": {"type": "NodePort"}}'
 
-    - name: Inspect ingress-nginx pods
-      run: kubectl get pods -n ingress-nginx -o wide
-
-    - name: Dump ingress-nginx logs
-      run: kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx
-
-    - name: Describe ingress-nginx-controller pod
-      run: |
-        POD_NAME=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath="{.items[0].metadata.name}")
-        kubectl describe pod $POD_NAME -n ingress-nginx
-
     - name: Wait for ingress controller rollout
       run: |
         echo "Waiting for ingress-nginx controller to finish rolling out..."
@@ -72,6 +61,17 @@ jobs:
         kubectl apply -f k8s/service.yml
         kubectl apply -f k8s/ingress.yml
 
+    - name: Inspect cluster resources
+      run: |
+        echo "🔐 TLS Secret:"
+        kubectl get secret wisecow-tls -n default
+        echo "📦 Pods:"
+        kubectl get pods -n default
+        echo "🔗 Services:"
+        kubectl get svc -n default
+        echo "🌐 Ingress:"
+        kubectl describe ingress wisecow-ingress
+
     - name: Test Wisecow app via Ingress
       run: |
         sleep 20
@@ -80,7 +80,7 @@ jobs:
         echo "Ingress IP: $INGRESS_IP"
         RESPONSE=$(curl -k --resolve wisecow.local:443:$INGRESS_IP https://wisecow.local)
         echo "$RESPONSE"
-        echo "$RESPONSE" | grep "cow" || (echo "Unexpected response from Wisecow app" && exit 1)
+        echo "$RESPONSE" | grep "cow" || (echo "❌ Unexpected response from Wisecow app" && exit 1)
 
     - name: Clean up TLS files
       run: rm tls.crt tls.key
