@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
       - name: wisecow
-        image: dsk2612/wisecow:latest
+        image: dsk2612/wisecow
         ports:
         - containerPort: 4499
