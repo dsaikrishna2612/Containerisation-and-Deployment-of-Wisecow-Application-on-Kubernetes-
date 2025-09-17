@@ -32,9 +32,9 @@ jobs:
     # 🐳 Build and push Docker image to Docker Hub
     - name: Build and Push Docker image to Docker Hub
       run: |
-        docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/wisecow:latest .
+        docker build -t dsk2612/wisecow:latest .
         echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-        docker push ${{ secrets.DOCKERHUB_USERNAME }}/wisecow:latest
+        docker push dsk2612/wisecow:latest
 
     # 🌐 Install NGINX Ingress Controller
     - name: Install NGINX Ingress
