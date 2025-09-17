@@ -8,12 +8,15 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+    # 📁 Checkout source code
     - name: Checkout code
       uses: actions/checkout@v3
 
+    # 📋 List files for debugging
     - name: List files
       run: ls -R
 
+    # 🧱 Set up Kind CLI and cluster
     - name: Set up Kind
       uses: helm/kind-action@v1.5.0
 
@@ -26,12 +29,14 @@ jobs:
     - name: Remove taint from Kind node
       run: kubectl taint nodes kind-control-plane node-role.kubernetes.io/control-plane- || true
 
+    # 🐳 Build and push Docker image to Docker Hub
     - name: Build and Push Docker image to Docker Hub
       run: |
         docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/wisecow:latest .
         echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
         docker push ${{ secrets.DOCKERHUB_USERNAME }}/wisecow:latest
 
+    # 🌐 Install NGINX Ingress Controller
     - name: Install NGINX Ingress
       run: |
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
@@ -47,6 +52,7 @@ jobs:
         echo "Waiting for ingress-nginx controller to finish rolling out..."
         kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
 
+    # 🔐 Generate TLS certs and create secret
     - name: Generate TLS certs
       run: |
         openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -55,12 +61,14 @@ jobs:
         kubectl create secret tls wisecow-tls \
           --cert=tls.crt --key=tls.key
 
+    # 🚀 Apply Kubernetes manifests
     - name: Apply Kubernetes manifests
       run: |
         kubectl apply -f k8s/deployment.yml
         kubectl apply -f k8s/service.yml
         kubectl apply -f k8s/ingress.yml
 
+    # 🔍 Inspect cluster resources
     - name: Inspect cluster resources
       run: |
         echo "🔐 TLS Secret:"
@@ -72,11 +80,29 @@ jobs:
         echo "🌐 Ingress:"
         kubectl describe ingress wisecow-ingress
 
+    # ⏳ Wait for Wisecow pod to be ready
+    # - name: Wait for Wisecow pod to be ready
+    #   run: |
+    #     echo "⏳ Waiting for Wisecow pod to be ready..."
+    #     for i in {1..5}; do
+    #       READY=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].status.containerStatuses[0].ready}")
+    #       if [ "$READY" == "true" ]; then
+    #         echo "✅ Wisecow pod is ready"
+    #         exit 0
+    #       fi
+    #       echo "⏳ Pod not ready yet, retrying in 30s..."
+    #       sleep 30
+    #     done
+    #     echo "❌ Pod failed to become ready"
+    #     exit 1
+
+    # 🧾 Describe pod for debugging
     - name: Describe Wisecow pod
       run: |
         POD_NAME=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].metadata.name}")
         kubectl describe pod $POD_NAME
 
+    # 🧪 Test Wisecow app via Ingress
     - name: Test Wisecow app via Ingress
       run: |
         sleep 20
@@ -87,5 +113,6 @@ jobs:
         echo "$RESPONSE"
         echo "$RESPONSE" | grep "cow" || (echo "❌ Unexpected response from Wisecow app" && exit 1)
 
+    # 🧹 Clean up TLS files
     - name: Clean up TLS files
       run: rm tls.crt tls.key
