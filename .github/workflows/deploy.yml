@@ -19,7 +19,7 @@ jobs:
       uses: helm/kind-action@v1.5.0
     
     - name: create kind cluster
-      run: kind create cluster --name kind
+      run: kind create cluster --name kind --config kind-config.yml
 
     - name: Build Docker image
       run: docker build -t wisecow:latest .
@@ -42,6 +42,12 @@ jobs:
 
     - name: Dump ingress-nginx logs
       run: kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx
+
+    - name: Describe ingress-nginx-controller pod
+      run: |
+        POD_NAME=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath="{.items[0].metadata.name}")
+        kubectl describe pod $POD_NAME -n ingress-nginx
+
 
     - name: Wait for ingress webhook to be ready
       run: |
