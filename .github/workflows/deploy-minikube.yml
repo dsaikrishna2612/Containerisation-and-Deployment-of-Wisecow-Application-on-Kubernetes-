@@ -1,0 +1,47 @@
+name: Deploy Wisecow to Minikube
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test-on-minikube:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Start Minikube
+      uses: medyagh/setup-minikube@latest
+
+    - name: Verify cluster
+      run: kubectl get pods -A
+
+    - name: Build image inside Minikube
+      run: minikube image build -t wisecow:local .
+
+    - name: Deploy Wisecow to Minikube
+      run: |
+        kubectl apply -f k8s/deployment.yml
+        kubectl apply -f k8s/service.yml
+        kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
+
+    - name: Test Wisecow service
+      run: |
+        SERVICE_URL=$(minikube service wisecow-service --url)
+        echo "Testing Wisecow app at $SERVICE_URL"
+        RESPONSE=$(curl --max-time 10 --connect-timeout 5 $SERVICE_URL || echo "Connection failed")
+        echo "$RESPONSE"
+        if echo "$RESPONSE" | grep "<pre>"; then
+          echo "✅ Wisecow app responded correctly"
+        else
+          echo "❌ Unexpected response from Wisecow app"
+          exit 1
+        fi
+
+    - name: Show external access details
+      run: |
+        NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
+        MINIKUBE_IP=$(minikube ip)
+        echo "🌐 Wisecow is externally accessible at: http://$MINIKUBE_IP:$NODE_PORT"
+        echo "✅ Share this URL with your interviewer to demonstrate external access"
