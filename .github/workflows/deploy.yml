@@ -76,19 +76,19 @@ jobs:
     # - name: Check for image pull errors
     #   run: kubectl get events --sort-by='.lastTimestamp'
 
-    # - name: Port-forward Wisecow service to localhost
-    #   run: |
-    #     echo "Starting port-forward to localhost:4499..."
-    #     kubectl port-forward svc/wisecow-service 4499:4499 &
-    #     sleep 10
-
     - name: Port-forward Wisecow service to localhost
       run: |
         echo "Starting port-forward to localhost:4499..."
-        kubectl port-forward svc/wisecow-service 4499:4499 > port-forward.log 2>&1 &
-        sleep 5
-        echo "Waiting for port 4499 to become available..."
-        for i in {1..10}; do nc -z localhost 4499 && echo "✅ Port 4499 is open" && break || sleep 2; done
+        kubectl port-forward svc/wisecow-service 4499:4499 &
+        sleep 10
+
+    # - name: Port-forward Wisecow service to localhost
+    #   run: |
+    #     echo "Starting port-forward to localhost:4499..."
+    #     kubectl port-forward svc/wisecow-service 4499:4499 > port-forward.log 2>&1 &
+    #     sleep 5
+    #     echo "Waiting for port 4499 to become available..."
+    #     for i in {1..10}; do nc -z localhost 4499 && echo "✅ Port 4499 is open" && break || sleep 2; done
 
     - name: Test Wisecow app via localhost using curl
       run: |
@@ -110,6 +110,15 @@ jobs:
     #   run: |
     #      HOST_IP=$(hostname -I | awk '{print $1}')
     #      echo "🌐 You can now access Wisecow at: http://$HOST_IP:4499"
+
+    - name: Port-forward Wisecow service to localhost
+      run: |
+        echo "Starting port-forward to localhost:4499..."
+        kubectl port-forward svc/wisecow-service 4499:4499 > port-forward.log 2>&1 &
+        sleep 5
+        echo "Waiting for port 4499 to become available..."
+        for i in {1..10}; do nc -z localhost 4499 && echo "✅ Port 4499 is open" && break || sleep 2; done
+
 
     - name: Expose Wisecow externally using ngrok
       run: |
