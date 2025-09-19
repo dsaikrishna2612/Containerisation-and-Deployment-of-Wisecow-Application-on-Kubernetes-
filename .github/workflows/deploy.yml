@@ -37,10 +37,11 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
         sleep 60
 
-    - name: Patch ingress-nginx service to expose port 443
+    - name: Patch ingress-nginx service to NodePort (if needed)
       run: |
+        kubectl get svc ingress-nginx-controller -n ingress-nginx -o json | jq '.spec.ports'
         kubectl patch svc ingress-nginx-controller -n ingress-nginx \
-          --type='json' -p='[{"op":"add","path":"/spec/ports/-","value":{"name":"https","port":443,"targetPort":8443,"protocol":"TCP"}}]'
+          --type='merge' -p '{"spec": {"type": "NodePort"}}'
 
     - name: Wait for ingress controller rollout
       run: kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
@@ -59,6 +60,9 @@ jobs:
         kubectl apply -f k8s/service.yml
         kubectl apply -f k8s/ingress.yml
 
+    - name: Wait for Wisecow pod to be ready
+      run: kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
+
     - name: Inspect cluster resources
       run: |
         echo "🔐 TLS Secret:"
@@ -75,13 +79,10 @@ jobs:
         POD_NAME=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].metadata.name}")
         kubectl describe pod $POD_NAME
 
+    - name: Check for image pull errors
+      run: kubectl get events --sort-by='.lastTimestamp'
 
-
-    - name: Wait for Wisecow pod to be ready
-      run: |
-        kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
-
-    - name: Get Wisecow pod IP and test port 4499 directly
+    - name: Test Wisecow app via direct pod IP and port 4499
       run: |
         POD_IP=$(kubectl get pod -l app=wisecow -o jsonpath="{.items[0].status.podIP}")
         echo "Testing Wisecow app on port 4499 at $POD_IP..."
