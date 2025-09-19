@@ -83,18 +83,19 @@ jobs:
 
     - name: Test Wisecow app via NodePort using curl
       run: |
-        NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
-        echo "Waiting for Wisecow app to be ready..."
-        sleep 10
-        echo "Testing Wisecow app on port $NODE_PORT..."
-        RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://localhost:$NODE_PORT || echo "Connection failed")
-        echo "$RESPONSE"
-        if echo "$RESPONSE" | grep "cowsay"; then
-          echo "✅ Wisecow app responded correctly"
-        else
-          echo "❌ Unexpected response from Wisecow app"
-          exit 1
-        fi
+         NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[?(@.type=='InternalIP')].address}")
+         NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
+         echo "Waiting for Wisecow app to be ready..."
+         sleep 10
+         echo "Testing Wisecow app on $NODE_IP:$NODE_PORT..."
+         RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://$NODE_IP:$NODE_PORT || echo "Connection failed")
+         echo "$RESPONSE"
+         if echo "$RESPONSE" | grep "cowsay"; then
+             echo "✅ Wisecow app responded correctly"
+         else
+             echo "❌ Unexpected response from Wisecow app"
+         exit 1
+         fi
 
     - name: Clean up TLS files
       run: rm tls.crt tls.key
