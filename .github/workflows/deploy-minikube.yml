@@ -1,4 +1,4 @@
-name: Deploy Wisecow to Minikube (NodePort)
+name: Deploy Wisecow to Minikube (NodePort + Monitoring + KubeArmor)
 
 on:
   push:
@@ -31,7 +31,6 @@ jobs:
         NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
         MINIKUBE_IP=$(minikube ip)
         echo "🌐 Wisecow is externally accessible at: http://$MINIKUBE_IP:$NODE_PORT"
-        echo "✅ Use this URL in your browser or curl to test the app"
 
     - name: Test Wisecow app via NodePort
       run: |
@@ -46,3 +45,12 @@ jobs:
           echo "❌ Unexpected response from Wisecow app"
           exit 1
         fi
+
+    - name: Run system health monitoring
+      run: bash scripts/system-health.sh
+
+    - name: Run application health checker
+      run: bash scripts/app-health-check.sh
+
+    - name: Apply KubeArmor zero-trust policy
+      run: kubectl apply -f k8s/kubearmor-policy.yml
