@@ -8,12 +8,15 @@ jobs:
   deploy-to-kind:
     runs-on: ubuntu-latest
     steps:
+    # 📁 Checkout source code
     - name: Checkout code
       uses: actions/checkout@v3
 
+    # 📋 List files for debugging
     - name: List files
       run: ls -R
 
+    # 🧱 Set up Kind CLI and cluster
     - name: Set up Kind
       uses: helm/kind-action@v1.5.0
 
@@ -26,26 +29,30 @@ jobs:
     - name: Remove taint from Kind node
       run: kubectl taint nodes kind-control-plane node-role.kubernetes.io/control-plane- || true
 
+    # 🐳 Build and load Docker image into Kind
     - name: Build Docker image
       run: docker build -t wisecow:local .
 
     - name: Load image into Kind
       run: kind load docker-image wisecow:local
 
+    # 🌐 Install NGINX Ingress Controller
     - name: Install NGINX Ingress
       run: |
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
         sleep 60
 
-    - name: Patch ingress-nginx service to NodePort (if needed)
+    # 🛠️ Patch ingress-nginx service to NodePort (safe merge)
+    - name: Patch ingress-nginx service to NodePort
       run: |
-        kubectl get svc ingress-nginx-controller -n ingress-nginx -o json | jq '.spec.ports'
         kubectl patch svc ingress-nginx-controller -n ingress-nginx \
           --type='merge' -p '{"spec": {"type": "NodePort"}}'
 
+    # ⏳ Wait for ingress controller rollout
     - name: Wait for ingress controller rollout
       run: kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
 
+    # 🔐 Generate TLS certs and create secret
     - name: Generate TLS certs
       run: |
         openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -54,15 +61,18 @@ jobs:
         kubectl create secret tls wisecow-tls \
           --cert=tls.crt --key=tls.key
 
+    # 🚀 Apply Kubernetes manifests
     - name: Apply Kubernetes manifests
       run: |
         kubectl apply -f k8s/deployment.yml
         kubectl apply -f k8s/service.yml
         kubectl apply -f k8s/ingress.yml
 
-    - name: Wait for Wisecow pod to be ready
+    # ⏳ Wait for Wisecow pod to be ready
+    - name: Wait for Wisecow pod readiness
       run: kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
 
+    # 🔍 Inspect cluster resources
     - name: Inspect cluster resources
       run: |
         echo "🔐 TLS Secret:"
@@ -74,21 +84,32 @@ jobs:
         echo "🌐 Ingress:"
         kubectl describe ingress wisecow-ingress
 
+    # 🧾 Describe Wisecow pod
     - name: Describe Wisecow pod
       run: |
         POD_NAME=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].metadata.name}")
         kubectl describe pod $POD_NAME
 
+    # 🧪 Check for image pull or startup errors
     - name: Check for image pull errors
       run: kubectl get events --sort-by='.lastTimestamp'
 
-    - name: Test Wisecow app via direct pod IP and port 4499
+    # 🧪 Test Wisecow app via direct pod IP and port 4499
+    - name: Test Wisecow app via pod IP
       run: |
         POD_IP=$(kubectl get pod -l app=wisecow -o jsonpath="{.items[0].status.podIP}")
+        echo "Waiting for Wisecow app to be ready..."
+        sleep 10
         echo "Testing Wisecow app on port 4499 at $POD_IP..."
-        RESPONSE=$(echo -e "GET / HTTP/1.1\nHost: localhost\n\n" | nc $POD_IP 4499)
+        RESPONSE=$(echo -e "GET / HTTP/1.1\nHost: localhost\n\n" | nc $POD_IP 4499 || echo "Connection failed")
         echo "$RESPONSE"
-        echo "$RESPONSE" | grep "cowsay" || (echo "❌ Unexpected response from Wisecow app" && exit 1)
+        if echo "$RESPONSE" | grep "cowsay"; then
+          echo "✅ Wisecow app responded correctly"
+        else
+          echo "❌ Unexpected response from Wisecow app"
+          exit 1
+        fi
 
+    # 🧹 Clean up TLS files
     - name: Clean up TLS files
       run: rm tls.crt tls.key
