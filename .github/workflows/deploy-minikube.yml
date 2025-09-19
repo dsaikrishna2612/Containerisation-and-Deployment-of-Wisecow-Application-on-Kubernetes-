@@ -74,9 +74,12 @@ jobs:
     - name: Apply KubeArmor sample config
       run: kubectl apply -f https://raw.githubusercontent.com/kubearmor/KubeArmor/main/pkg/KubeArmorOperator/config/samples/sample-config.yml
 
-    - name: Wait for KubeArmor pods to be ready
-      run: kubectl wait --for=condition=Ready pod -l app=kubearmor-operator -n kubearmor --timeout=120s
-
+    - name: Wait for KubeArmor operator pod to be ready
+      run: |
+        echo "🔍 Checking KubeArmor pods in 'kubearmor' namespace..."
+        kubectl get pods -n kubearmor --show-labels
+        kubectl wait --for=condition=Ready pod -n kubearmor --selector=app.kubernetes.io/name=kubearmor-operator --timeout=120s
+        
     - name: Apply KubeArmor zero-trust policy
       run: kubectl apply -f k8s/kubearmor-policy.yml
 
