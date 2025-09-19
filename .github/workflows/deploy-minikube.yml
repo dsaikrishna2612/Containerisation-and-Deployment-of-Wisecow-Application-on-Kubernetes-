@@ -1,11 +1,11 @@
-name: Deploy Wisecow to Minikube
+name: Deploy Wisecow to Minikube (NodePort)
 
 on:
   push:
     branches: [main]
 
 jobs:
-  test-on-minikube:
+  deploy-wisecow:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
@@ -20,32 +20,25 @@ jobs:
     - name: Build image inside Minikube
       run: minikube image build -t wisecow:local .
 
-    - name: Deploy Wisecow to Minikube
+    - name: Deploy Wisecow app
       run: |
         kubectl apply -f k8s/deployment.yml
         kubectl apply -f k8s/service.yml
         kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
 
-    - name: Wait for external IP assignment
+    - name: Extract NodePort and Minikube IP
       run: |
-        echo "Waiting for LoadBalancer IP..."
-        for i in {1..30}; do
-          EXTERNAL_IP=$(kubectl get svc wisecow-service -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
-          if [ -n "$EXTERNAL_IP" ]; then echo "✅ IP assigned: $EXTERNAL_IP"; break; fi
-          echo "⏳ Still waiting..."; sleep 5
-        done
+        NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
+        MINIKUBE_IP=$(minikube ip)
+        echo "🌐 Wisecow is externally accessible at: http://$MINIKUBE_IP:$NODE_PORT"
+        echo "✅ Use this URL in your browser or curl to test the app"
 
-    - name: Show external access URL
+    - name: Test Wisecow app via NodePort
       run: |
-        EXTERNAL_IP=$(kubectl get svc wisecow-service -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
-        echo "🌐 Wisecow is externally accessible at: http://$EXTERNAL_IP:4499"
-        echo "✅ Share this URL with your interviewer to demonstrate public access"
-
-    - name: Test Wisecow app via external IP
-      run: |
-        EXTERNAL_IP=$(kubectl get svc wisecow-service -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
-        echo "Testing Wisecow app at http://$EXTERNAL_IP:4499"
-        RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://$EXTERNAL_IP:4499 || echo "Connection failed")
+        NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
+        MINIKUBE_IP=$(minikube ip)
+        echo "Testing Wisecow app at http://$MINIKUBE_IP:$NODE_PORT"
+        RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://$MINIKUBE_IP:$NODE_PORT || echo "Connection failed")
         echo "$RESPONSE"
         if echo "$RESPONSE" | grep "<pre>"; then
           echo "✅ Wisecow app responded correctly"
