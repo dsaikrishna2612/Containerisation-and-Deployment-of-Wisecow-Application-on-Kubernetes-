@@ -98,10 +98,25 @@ jobs:
     #   run: |
     #      echo "🌐 You can now access Wisecow at: http://localhost:4499"
 
-    - name: Print actual host IP for access
+    # - name: Print actual host IP for access
+    #   run: |
+    #      HOST_IP=$(hostname -I | awk '{print $1}')
+    #      echo "🌐 You can now access Wisecow at: http://$HOST_IP:4499"
+
+    - name: Expose Wisecow externally using ngrok
       run: |
-         HOST_IP=$(hostname -I | awk '{print $1}')
-         echo "🌐 You can now access Wisecow at: http://$HOST_IP:4499"
+        echo "Installing ngrok and starting tunnel..."
+        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+        sudo apt update && sudo apt install ngrok
+        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+        ngrok http 4499 > ngrok.log &
+        sleep 10
+
+    - name: Fetch public ngrok URL
+      run: |
+        NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+        echo "🌐 Wisecow is now publicly accessible at: $NGROK_URL"
 
 
     - name: Clean up TLS files
