@@ -1,113 +1,113 @@
-name: Deploy Wisecow to Kind
+# name: Deploy Wisecow to Kind
 
-on:
-  push:
-    branches: [main]
+# on:
+#   push:
+#     branches: [main]
 
-jobs:
-  deploy-to-kind:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+# jobs:
+#   deploy-to-kind:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v3
 
-    - name: Set up Kind
-      uses: helm/kind-action@v1.5.0
+#     - name: Set up Kind
+#       uses: helm/kind-action@v1.5.0
 
-    - name: Create Kind cluster with custom config
-      run: kind create cluster --name kind --config kind-config.yml
+#     - name: Create Kind cluster with custom config
+#       run: kind create cluster --name kind --config kind-config.yml
 
-    - name: Label Kind node for ingress
-      run: kubectl label node kind-control-plane ingress-ready=true
+#     - name: Label Kind node for ingress
+#       run: kubectl label node kind-control-plane ingress-ready=true
 
-    - name: Remove taint from Kind node
-      run: kubectl taint nodes kind-control-plane node-role.kubernetes.io/control-plane- || true
+#     - name: Remove taint from Kind node
+#       run: kubectl taint nodes kind-control-plane node-role.kubernetes.io/control-plane- || true
 
-    - name: Build Docker image
-      run: docker build -t wisecow:local .
+#     - name: Build Docker image
+#       run: docker build -t wisecow:local .
 
-    - name: Load image into Kind
-      run: kind load docker-image wisecow:local
+#     - name: Load image into Kind
+#       run: kind load docker-image wisecow:local
 
-    - name: Install NGINX Ingress
-      run: |
-        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
-        sleep 60
+#     - name: Install NGINX Ingress
+#       run: |
+#         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
+#         sleep 60
 
-    - name: Wait for ingress controller rollout
-      run: kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
+#     - name: Wait for ingress controller rollout
+#       run: kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
 
-    - name: Generate TLS certs
-      run: |
-        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-          -keyout tls.key -out tls.crt \
-          -subj "/CN=wisecow.local"
-        kubectl create secret tls wisecow-tls \
-          --cert=tls.crt --key=tls.key
+#     - name: Generate TLS certs
+#       run: |
+#         openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#           -keyout tls.key -out tls.crt \
+#           -subj "/CN=wisecow.local"
+#         kubectl create secret tls wisecow-tls \
+#           --cert=tls.crt --key=tls.key
 
-    - name: Apply Kubernetes manifests
-      run: |
-        kubectl apply -f k8s/deployment.yml
-        kubectl apply -f k8s/service.yml
-        kubectl apply -f k8s/ingress.yml
+#     - name: Apply Kubernetes manifests
+#       run: |
+#         kubectl apply -f k8s/deployment.yml
+#         kubectl apply -f k8s/service.yml
+#         kubectl apply -f k8s/ingress.yml
 
-    - name: Wait for Wisecow pod readiness
-      run: kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
+#     - name: Wait for Wisecow pod readiness
+#       run: kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
 
-    - name: Inspect cluster resources
-      run: |
-        echo "🔐 TLS Secret:"
-        kubectl get secret wisecow-tls -n default
-        echo "📦 Pods:"
-        kubectl get pods -n default
-        echo "🔗 Services:"
-        kubectl get svc -n default
-        echo "🌐 Ingress:"
-        kubectl describe ingress wisecow-ingress
+#     - name: Inspect cluster resources
+#       run: |
+#         echo "🔐 TLS Secret:"
+#         kubectl get secret wisecow-tls -n default
+#         echo "📦 Pods:"
+#         kubectl get pods -n default
+#         echo "🔗 Services:"
+#         kubectl get svc -n default
+#         echo "🌐 Ingress:"
+#         kubectl describe ingress wisecow-ingress
 
-    - name: Port-forward Wisecow service to localhost
-      run: |
-        echo "Starting port-forward to localhost:4499..."
-        kubectl port-forward svc/wisecow-service 4499:4499 > port-forward.log 2>&1 &
-        sleep 5
-        echo "Waiting for port 4499 to become available..."
-        for i in {1..10}; do nc -z localhost 4499 && echo "✅ Port 4499 is open" && break || sleep 2; done
+#     - name: Port-forward Wisecow service to localhost
+#       run: |
+#         echo "Starting port-forward to localhost:4499..."
+#         kubectl port-forward svc/wisecow-service 4499:4499 > port-forward.log 2>&1 &
+#         sleep 5
+#         echo "Waiting for port 4499 to become available..."
+#         for i in {1..10}; do nc -z localhost 4499 && echo "✅ Port 4499 is open" && break || sleep 2; done
 
-    - name: Test Wisecow app via localhost using curl
-      run: |
-        echo "Testing Wisecow app on http://localhost:4499..."
-        RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://localhost:4499 || echo "Connection failed")
-        echo "$RESPONSE"
-        if echo "$RESPONSE" | grep "<pre>"; then
-          echo "✅ Wisecow app responded correctly"
-        else
-          echo "❌ Unexpected response from Wisecow app"
-          exit 1
-        fi
+#     - name: Test Wisecow app via localhost using curl
+#       run: |
+#         echo "Testing Wisecow app on http://localhost:4499..."
+#         RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://localhost:4499 || echo "Connection failed")
+#         echo "$RESPONSE"
+#         if echo "$RESPONSE" | grep "<pre>"; then
+#           echo "✅ Wisecow app responded correctly"
+#         else
+#           echo "❌ Unexpected response from Wisecow app"
+#           exit 1
+#         fi
 
-    - name: Expose Wisecow externally using ngrok
-      run: |
-        echo "Installing ngrok and starting tunnel..."
-        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-        sudo apt update && sudo apt install ngrok
-        ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
-        ngrok http 4499 > ngrok.log &
-        sleep 10
+#     - name: Expose Wisecow externally using ngrok
+#       run: |
+#         echo "Installing ngrok and starting tunnel..."
+#         curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+#         echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+#         sudo apt update && sudo apt install ngrok
+#         ngrok config add-authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+#         ngrok http 4499 > ngrok.log &
+#         sleep 10
 
-    - name: |
-          Developer Tip: Keep ngrok tunnel alive beyond CI
-      run: |
-        echo "💡 TIP: The ngrok tunnel above will only stay active while this GitHub Actions job is running."
-        echo "To keep Wisecow publicly accessible after CI completes:"
-        echo "1️⃣ Run this workflow locally using the 'act' CLI: https://github.com/nektos/act"
-        echo "2️⃣ Or deploy Wisecow to a cloud Kubernetes cluster (e.g., AKS, GKE, EKS) with a LoadBalancer or Ingress."
-        echo "3️⃣ Or run 'kubectl port-forward svc/wisecow-service 4499:4499' and 'ngrok http 4499' manually on your local machine."
+#     - name: |
+#           Developer Tip: Keep ngrok tunnel alive beyond CI
+#       run: |
+#         echo "💡 TIP: The ngrok tunnel above will only stay active while this GitHub Actions job is running."
+#         echo "To keep Wisecow publicly accessible after CI completes:"
+#         echo "1️⃣ Run this workflow locally using the 'act' CLI: https://github.com/nektos/act"
+#         echo "2️⃣ Or deploy Wisecow to a cloud Kubernetes cluster (e.g., AKS, GKE, EKS) with a LoadBalancer or Ingress."
+#         echo "3️⃣ Or run 'kubectl port-forward svc/wisecow-service 4499:4499' and 'ngrok http 4499' manually on your local machine."
 
-    - name: Fetch public ngrok URL
-      run: |
-        NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-        echo "🌐 Wisecow is now publicly accessible at: $NGROK_URL"
+#     - name: Fetch public ngrok URL
+#       run: |
+#         NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+#         echo "🌐 Wisecow is now publicly accessible at: $NGROK_URL"
 
-    - name: Clean up TLS files
-      run: rm tls.crt tls.key
+#     - name: Clean up TLS files
+#       run: rm tls.crt tls.key
