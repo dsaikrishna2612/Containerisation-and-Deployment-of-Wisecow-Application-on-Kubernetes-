@@ -113,6 +113,14 @@ jobs:
         ngrok http 4499 > ngrok.log &
         sleep 10
 
+    - name: Developer Tip: Keep ngrok tunnel alive beyond CI
+      run: |
+         echo "💡 TIP: The ngrok tunnel above will only stay active while this GitHub Actions job is running."
+         echo "To keep Wisecow publicly accessible after CI completes:"
+         echo "1️⃣ Run this workflow locally using the 'act' CLI: https://github.com/nektos/act"
+         echo "2️⃣ Or deploy Wisecow to a cloud Kubernetes cluster (e.g., AKS, GKE, EKS) with a LoadBalancer or Ingress."
+         echo "3️⃣ Or run 'kubectl port-forward svc/wisecow-service 4499:4499' and 'ngrok http 4499' manually on your local machine."      
+
     - name: Fetch public ngrok URL
       run: |
         NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url')
