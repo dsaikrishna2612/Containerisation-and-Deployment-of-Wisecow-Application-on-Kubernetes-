@@ -11,8 +11,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Start Minikube
+    - name: Start Minikube with Docker driver
       uses: medyagh/setup-minikube@latest
+      with:
+       driver: docker
 
     - name: Enable NGINX Ingress
       run: minikube addons enable ingress
@@ -103,6 +105,6 @@ jobs:
         fi
         echo "📋 Fetching logs from $OPERATOR_POD..."
         kubectl logs $OPERATOR_POD -n kubearmor | grep -i "Blocked" || echo "⚠️ No violations detected yet"
-        
+
     - name: Clean up TLS files
       run: rm tls.crt tls.key
