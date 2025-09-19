@@ -66,6 +66,9 @@ jobs:
     - name: Run application health checker
       run: bash scripts/app-health-check.sh
 
+    - name: Install KubeArmor CRDs
+      run: kubectl apply -f https://github.com/kubearmor/KubeArmor/releases/latest/download/kubearmor-operator.yaml
+
     - name: Apply KubeArmor zero-trust policy
       run: kubectl apply -f k8s/kubearmor-policy.yml
 
