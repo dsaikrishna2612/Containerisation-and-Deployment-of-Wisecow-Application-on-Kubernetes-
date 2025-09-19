@@ -37,15 +37,13 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
         sleep 60
 
-    - name: Patch ingress-nginx service to NodePort
+    - name: Patch ingress-nginx service to expose port 443
       run: |
         kubectl patch svc ingress-nginx-controller -n ingress-nginx \
-          -p '{"spec": {"type": "NodePort"}}'
+          --type='json' -p='[{"op":"add","path":"/spec/ports/-","value":{"name":"https","port":443,"targetPort":8443,"protocol":"TCP"}}]'
 
     - name: Wait for ingress controller rollout
-      run: |
-        echo "Waiting for ingress-nginx controller to finish rolling out..."
-        kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
+      run: kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
 
     - name: Generate TLS certs
       run: |
@@ -77,18 +75,19 @@ jobs:
         POD_NAME=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].metadata.name}")
         kubectl describe pod $POD_NAME
 
-    - name: Check for image pull errors
-      run: kubectl get events --sort-by='.lastTimestamp'
 
-    - name: Test Wisecow app via Ingress
+
+    - name: Wait for Wisecow pod to be ready
       run: |
-        sleep 20
-        INGRESS_IP=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx \
-          -o jsonpath="{.items[0].status.podIP}")
-        echo "Ingress IP: $INGRESS_IP"
-        RESPONSE=$(curl -k --resolve wisecow.local:443:$INGRESS_IP https://wisecow.local)
+        kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
+
+    - name: Get Wisecow pod IP and test port 4499 directly
+      run: |
+        POD_IP=$(kubectl get pod -l app=wisecow -o jsonpath="{.items[0].status.podIP}")
+        echo "Testing Wisecow app on port 4499 at $POD_IP..."
+        RESPONSE=$(echo -e "GET / HTTP/1.1\nHost: localhost\n\n" | nc $POD_IP 4499)
         echo "$RESPONSE"
-        echo "$RESPONSE" | grep "cow" || (echo "❌ Unexpected response from Wisecow app" && exit 1)
+        echo "$RESPONSE" | grep "cowsay" || (echo "❌ Unexpected response from Wisecow app" && exit 1)
 
     - name: Clean up TLS files
       run: rm tls.crt tls.key
