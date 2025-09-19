@@ -8,15 +8,12 @@ jobs:
   deploy-to-kind:
     runs-on: ubuntu-latest
     steps:
-    # 📁 Checkout source code
     - name: Checkout code
       uses: actions/checkout@v3
 
-    # 📋 List files for debugging
     - name: List files
       run: ls -R
 
-    # 🧱 Set up Kind CLI and cluster
     - name: Set up Kind
       uses: helm/kind-action@v1.5.0
 
@@ -29,15 +26,12 @@ jobs:
     - name: Remove taint from Kind node
       run: kubectl taint nodes kind-control-plane node-role.kubernetes.io/control-plane- || true
 
-    # 🐳 Build and push Docker image to Docker Hub
-    - name: Build and Push Docker image to Docker Hub
-      run: |
-        IMAGE_NAME=dsk2612/wisecow:latest
-        docker build -t $IMAGE_NAME .
-        echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-        docker push $IMAGE_NAME
+    - name: Build Docker image
+      run: docker build -t wisecow:local .
 
-    # 🌐 Install NGINX Ingress Controller
+    - name: Load image into Kind
+      run: kind load docker-image wisecow:local
+
     - name: Install NGINX Ingress
       run: |
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
@@ -53,7 +47,6 @@ jobs:
         echo "Waiting for ingress-nginx controller to finish rolling out..."
         kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
 
-    # 🔐 Generate TLS certs and create secret
     - name: Generate TLS certs
       run: |
         openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
@@ -62,15 +55,12 @@ jobs:
         kubectl create secret tls wisecow-tls \
           --cert=tls.crt --key=tls.key
 
-    # 🚀 Apply Kubernetes manifests (replace IMAGE_PLACEHOLDER)
     - name: Apply Kubernetes manifests
       run: |
-        sed -i "s|IMAGE_PLACEHOLDER|dsk2612/wisecow:latest|g" k8s/deployment.yml
         kubectl apply -f k8s/deployment.yml
         kubectl apply -f k8s/service.yml
         kubectl apply -f k8s/ingress.yml
 
-    # 🔍 Inspect cluster resources
     - name: Inspect cluster resources
       run: |
         echo "🔐 TLS Secret:"
@@ -82,7 +72,6 @@ jobs:
         echo "🌐 Ingress:"
         kubectl describe ingress wisecow-ingress
 
-    # 🧾 Describe pod for debugging
     - name: Describe Wisecow pod
       run: |
         POD_NAME=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].metadata.name}")
@@ -91,7 +80,6 @@ jobs:
     - name: Check for image pull errors
       run: kubectl get events --sort-by='.lastTimestamp'
 
-    # 🧪 Test Wisecow app via Ingress
     - name: Test Wisecow app via Ingress
       run: |
         sleep 20
@@ -102,6 +90,5 @@ jobs:
         echo "$RESPONSE"
         echo "$RESPONSE" | grep "cow" || (echo "❌ Unexpected response from Wisecow app" && exit 1)
 
-    # 🧹 Clean up TLS files
     - name: Clean up TLS files
       run: rm tls.crt tls.key

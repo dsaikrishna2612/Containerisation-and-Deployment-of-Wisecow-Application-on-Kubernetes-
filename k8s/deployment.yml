@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: wisecow
-          image: IMAGE_PLACEHOLDER   # 🔄 replaced in GitHub Actions
+          image: wisecow:local
           ports:
             - containerPort: 4499
           resources:
