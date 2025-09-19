@@ -73,11 +73,12 @@ jobs:
           --namespace kubearmor --create-namespace \
           --set autoDeploy=true
 
+    - name: Apply KubeArmor zero-trust policy
+      run: kubectl apply -f k8s/kubearmor-policy.yml          
+
     - name: Wait for KubeArmor pods to be ready
       run: kubectl wait --for=condition=Ready pod -l app=kubearmor-operator -n kubearmor --timeout=120s
 
-    - name: Apply KubeArmor zero-trust policy
-      run: kubectl apply -f k8s/kubearmor-policy.yml
 
     - name: Clean up TLS files
       run: rm tls.crt tls.key
