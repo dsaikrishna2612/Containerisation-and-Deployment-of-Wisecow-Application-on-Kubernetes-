@@ -113,7 +113,8 @@ jobs:
         ngrok http 4499 > ngrok.log &
         sleep 10
 
-    - name: Developer Tip: Keep ngrok tunnel alive beyond CI
+    - name: |
+           Developer Tip: Keep ngrok tunnel alive beyond CI
       run: |
          echo "💡 TIP: The ngrok tunnel above will only stay active while this GitHub Actions job is running."
          echo "To keep Wisecow publicly accessible after CI completes:"
