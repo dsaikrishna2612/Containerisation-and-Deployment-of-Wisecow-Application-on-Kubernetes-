@@ -73,21 +73,21 @@ jobs:
         echo "🌐 Ingress:"
         kubectl describe ingress wisecow-ingress
 
-    # - name: Describe Wisecow pod
-    #   run: |
-    #     POD_NAME=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].metadata.name}")
-    #     kubectl describe pod $POD_NAME
-
-    # - name: Check for image pull errors
-    #   run: kubectl get events --sort-by='.lastTimestamp'
-
-    - name: Test Wisecow app via pod IP using curl
+    - name: Describe Wisecow pod
       run: |
-        POD_IP=$(kubectl get pod -l app=wisecow -o jsonpath="{.items[0].status.podIP}")
+        POD_NAME=$(kubectl get pods -l app=wisecow -o jsonpath="{.items[0].metadata.name}")
+        kubectl describe pod $POD_NAME
+
+    - name: Check for image pull errors
+      run: kubectl get events --sort-by='.lastTimestamp'
+
+    - name: Test Wisecow app via NodePort using curl
+      run: |
+        NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
         echo "Waiting for Wisecow app to be ready..."
         sleep 10
-        echo "Testing Wisecow app on port 4499 at $POD_IP..."
-        RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://$POD_IP:4499 || echo "Connection failed")
+        echo "Testing Wisecow app on port $NODE_PORT..."
+        RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://localhost:$NODE_PORT || echo "Connection failed")
         echo "$RESPONSE"
         if echo "$RESPONSE" | grep "cowsay"; then
           echo "✅ Wisecow app responded correctly"
