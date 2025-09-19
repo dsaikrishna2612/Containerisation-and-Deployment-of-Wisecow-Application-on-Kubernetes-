@@ -88,7 +88,7 @@ jobs:
           fi
           sleep 5
         done
-                
+
     - name: Apply KubeArmor zero-trust policy
       run: kubectl apply -f k8s/kubearmor-policy.yml
 
@@ -96,9 +96,13 @@ jobs:
       run: |
         echo "⏳ Waiting for potential violations..."
         sleep 10
-        OPERATOR_POD=$(kubectl get pods -n kubearmor -l app=kubearmor-operator -o jsonpath="{.items[0].metadata.name}")
+        OPERATOR_POD=$(kubectl get pods -n kubearmor -l kubearmor-app=kubearmor-operator -o jsonpath="{.items[0].metadata.name}")
+        if [ -z "$OPERATOR_POD" ]; then
+          echo "❌ Operator pod not found. Skipping log capture."
+          exit 1
+        fi
         echo "📋 Fetching logs from $OPERATOR_POD..."
         kubectl logs $OPERATOR_POD -n kubearmor | grep -i "Blocked" || echo "⚠️ No violations detected yet"
-
+        
     - name: Clean up TLS files
       run: rm tls.crt tls.key
