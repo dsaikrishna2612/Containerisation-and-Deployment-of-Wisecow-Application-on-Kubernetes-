@@ -78,8 +78,17 @@ jobs:
       run: |
         echo "🔍 Checking KubeArmor pods in 'kubearmor' namespace..."
         kubectl get pods -n kubearmor --show-labels
-        kubectl wait --for=condition=Ready pod -n kubearmor --selector=app.kubernetes.io/name=kubearmor-operator --timeout=120s
-        
+        echo "⏳ Waiting for KubeArmor operator pod to be ready..."
+        for i in {1..30}; do
+          STATUS=$(kubectl get pod -n kubearmor -l kubearmor-app=kubearmor-operator -o jsonpath="{.items[0].status.phase}")
+          echo "Current status: $STATUS"
+          if [ "$STATUS" = "Running" ]; then
+            echo "✅ KubeArmor operator pod is running"
+            break
+          fi
+          sleep 5
+        done
+                
     - name: Apply KubeArmor zero-trust policy
       run: kubectl apply -f k8s/kubearmor-policy.yml
 
