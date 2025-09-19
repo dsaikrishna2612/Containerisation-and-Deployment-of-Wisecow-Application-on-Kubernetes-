@@ -37,11 +37,6 @@ jobs:
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/kind/deploy.yaml
         sleep 60
 
-    - name: Patch ingress-nginx service to NodePort
-      run: |
-        kubectl patch svc ingress-nginx-controller -n ingress-nginx \
-          --type='merge' -p '{"spec": {"type": "NodePort"}}'
-
     - name: Wait for ingress controller rollout
       run: kubectl rollout status deployment ingress-nginx-controller -n ingress-nginx --timeout=300s
 
@@ -81,14 +76,16 @@ jobs:
     - name: Check for image pull errors
       run: kubectl get events --sort-by='.lastTimestamp'
 
-    - name: Test Wisecow app via NodePort using curl
+    - name: Port-forward Wisecow service to localhost
       run: |
-        NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[?(@.type=='InternalIP')].address}")
-        NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
-        echo "Waiting for Wisecow app to be ready..."
+        echo "Starting port-forward to localhost:4499..."
+        kubectl port-forward svc/wisecow-service 4499:4499 &
         sleep 10
-        echo "Testing Wisecow app on $NODE_IP:$NODE_PORT..."
-        RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://$NODE_IP:$NODE_PORT || echo "Connection failed")
+
+    - name: Test Wisecow app via localhost using curl
+      run: |
+        echo "Testing Wisecow app on http://localhost:4499..."
+        RESPONSE=$(curl --max-time 10 --connect-timeout 5 http://localhost:4499 || echo "Connection failed")
         echo "$RESPONSE"
         if echo "$RESPONSE" | grep "<pre>"; then
           echo "✅ Wisecow app responded correctly"
@@ -99,9 +96,7 @@ jobs:
 
     - name: Print external access URL
       run: |
-        NODE_IP=$(kubectl get nodes -o jsonpath="{.items[0].status.addresses[?(@.type=='InternalIP')].address}")
-        NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
-        echo "🌐 You can access Wisecow externally at: http://$NODE_IP:$NODE_PORT"
+         echo "🌐 You can now access Wisecow at: http://localhost:4499"
 
     - name: Clean up TLS files
       run: rm tls.crt tls.key
