@@ -38,7 +38,6 @@ jobs:
         kubectl apply -f k8s/ingress.yml
         kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
 
-
     - name: Extract NodePort and Minikube IP
       run: |
         NODE_PORT=$(kubectl get svc wisecow-service -o jsonpath="{.spec.ports[0].nodePort}")
@@ -70,18 +69,16 @@ jobs:
         helm repo add kubearmor https://kubearmor.github.io/charts
         helm repo update
         helm upgrade --install kubearmor-operator kubearmor/kubearmor-operator \
-          --namespace kubearmor --create-namespace \
-          --set autoDeploy=true
+          --namespace kubearmor --create-namespace
 
-    - name: Apply KubeArmor zero-trust policy
-      run: kubectl apply -f k8s/kubearmor-policy.yml          
+    - name: Apply KubeArmor sample config
+      run: kubectl apply -f https://raw.githubusercontent.com/kubearmor/KubeArmor/main/pkg/KubeArmorOperator/config/samples/sample-config.yml
 
     - name: Wait for KubeArmor pods to be ready
       run: kubectl wait --for=condition=Ready pod -l app=kubearmor-operator -n kubearmor --timeout=120s
 
-
-    - name: Clean up TLS files
-      run: rm tls.crt tls.key
+    - name: Apply KubeArmor zero-trust policy
+      run: kubectl apply -f k8s/kubearmor-policy.yml
 
     - name: Capture KubeArmor violation logs
       run: |
@@ -91,3 +88,5 @@ jobs:
         echo "📋 Fetching logs from $OPERATOR_POD..."
         kubectl logs $OPERATOR_POD -n kubearmor | grep -i "Blocked" || echo "⚠️ No violations detected yet"
 
+    - name: Clean up TLS files
+      run: rm tls.crt tls.key
