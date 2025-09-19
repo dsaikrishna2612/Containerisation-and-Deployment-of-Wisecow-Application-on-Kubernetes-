@@ -82,3 +82,12 @@ jobs:
 
     - name: Clean up TLS files
       run: rm tls.crt tls.key
+
+    - name: Capture KubeArmor violation logs
+      run: |
+        echo "⏳ Waiting for potential violations..."
+        sleep 10
+        OPERATOR_POD=$(kubectl get pods -n kubearmor -l app=kubearmor-operator -o jsonpath="{.items[0].metadata.name}")
+        echo "📋 Fetching logs from $OPERATOR_POD..."
+        kubectl logs $OPERATOR_POD -n kubearmor | grep -i "Blocked" || echo "⚠️ No violations detected yet"
+
