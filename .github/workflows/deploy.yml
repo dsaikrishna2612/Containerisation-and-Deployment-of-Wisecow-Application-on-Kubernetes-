@@ -94,9 +94,15 @@ jobs:
           exit 1
         fi
 
-    - name: Print external access URL
+    # - name: Print external access URL
+    #   run: |
+    #      echo "🌐 You can now access Wisecow at: http://localhost:4499"
+
+    - name: Print actual host IP for access
       run: |
-         echo "🌐 You can now access Wisecow at: http://localhost:4499"
+         HOST_IP=$(hostname -I | awk '{print $1}')
+         echo "🌐 You can now access Wisecow at: http://$HOST_IP:4499"
+
 
     - name: Clean up TLS files
       run: rm tls.crt tls.key
