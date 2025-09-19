@@ -7,7 +7,7 @@ spec:
     app: wisecow
   ports:
     - protocol: TCP
-      port: 80
+      port: 4499
       targetPort: 4499
       # nodePort: 30499  # Optional: specify or let Kubernetes assign      
-  type: ClusterIP
+  type: NodePort
