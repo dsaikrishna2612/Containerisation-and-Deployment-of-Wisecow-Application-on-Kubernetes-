@@ -1,4 +1,4 @@
-name: Deploy Wisecow to Minikube (NodePort + Monitoring + KubeArmor)
+name: Deploy Wisecow to Minikube (NodePort + Monitoring + KubeArmor + TLS)
 
 on:
   push:
@@ -14,6 +14,9 @@ jobs:
     - name: Start Minikube
       uses: medyagh/setup-minikube@latest
 
+    - name: Enable NGINX Ingress
+      run: minikube addons enable ingress
+
     - name: Verify cluster
       run: kubectl get pods -A
 
@@ -25,6 +28,17 @@ jobs:
         kubectl apply -f k8s/deployment.yml
         kubectl apply -f k8s/service.yml
         kubectl wait --for=condition=Ready pod -l app=wisecow --timeout=120s
+
+    - name: Generate TLS cert and create secret
+      run: |
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+          -keyout tls.key -out tls.crt \
+          -subj "/CN=wisecow.local"
+        kubectl create secret tls wisecow-tls \
+          --cert=tls.crt --key=tls.key
+
+    - name: Apply Ingress for TLS
+      run: kubectl apply -f k8s/ingress.yml
 
     - name: Extract NodePort and Minikube IP
       run: |
@@ -54,3 +68,6 @@ jobs:
 
     - name: Apply KubeArmor zero-trust policy
       run: kubectl apply -f k8s/kubearmor-policy.yml
+
+    - name: Clean up TLS files
+      run: rm tls.crt tls.key
