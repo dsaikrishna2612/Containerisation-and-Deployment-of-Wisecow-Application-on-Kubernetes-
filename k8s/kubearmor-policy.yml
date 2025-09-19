@@ -1,7 +1,7 @@
 apiVersion: security.kubearmor.com/v1
 kind: KubeArmorPolicy
 metadata:
-  name: block-external-access
+  name: wisecow-zero-trust
   namespace: default
 spec:
   selector:
@@ -10,6 +10,13 @@ spec:
   process:
     matchPaths:
     - path: /usr/bin/curl
+    - path: /usr/bin/wget
+  file:
+    matchDirectories:
+    - dir: /etc/
+      recursive: true
+    - dir: /var/
+      recursive: true
   action: Block
   severity: 5
-  message: "Outbound curl blocked by zero-trust policy"
+  message: "Blocked unauthorized process or file access by Wisecow pod"
